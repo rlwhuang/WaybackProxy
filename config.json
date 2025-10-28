@@ -1,7 +1,7 @@
 {
-    "LISTEN_PORT": 8888,
-    "DATE": "20011025",
-    "DATE_TOLERANCE": 365,
+    "LISTEN_PORT": 8089,
+    "DATE": "19990419",
+    "DATE_TOLERANCE": null,
     "GEOCITIES_FIX": true,
     "QUICK_IMAGES": true,
     "WAYBACK_API": false,
