@@ -379,7 +379,8 @@ class Handler(socketserver.BaseRequestHandler):
 				return self.send_redirect_page(http_version, archived_url, 301)
 
 			# Check if the date is within tolerance.
-			if DATE_TOLERANCE != None:
+			# RLH change: add check to skip if DATE_TOLERANCE is None or 0
+			if DATE_TOLERANCE != None and int(DATE_TOLERANCE) != 0:
 				match = re.search('''(?://web\\.archive\\.org|^)/web/([0-9]+)''', conn.geturl() or '')
 				if match:
 					requested_date = match.group(1)
