@@ -111,6 +111,7 @@ class SharedState:
 		self.dormancy_timer = None
 		self.dormancy_lock = threading.Lock()
 		self.dormancy_first_request = True
+		self.server = None  # Reference to the server for shutdown
 
 shared_state = SharedState()
 
@@ -140,21 +141,22 @@ class Handler(socketserver.BaseRequestHandler):
 			_print('[notification sent successfully]')
 		except Exception as e:
 			_print('[!] Failed to send notification to localhost:8080/load_finish:', e)
-			_print('[!] Terminating proxy')
-			# Terminate the proxy
-			import os
-			os._exit(1)
+			_print('[!] Shutting down proxy')
+			# Shut down the server immediately
+			if self.shared_state.server:
+				self.shared_state.server.shutdown()
+			return
 		
-		# Schedule proxy termination after 5 seconds
-		_print('[proxy will terminate in 5 seconds]')
-		def delayed_exit():
-			_print('[terminating proxy]')
-			import os
-			os._exit(0)
+		# Schedule proxy shutdown after 5 seconds
+		_print('[proxy will shut down in 5 seconds]')
+		def delayed_shutdown():
+			_print('[shutting down proxy]')
+			if self.shared_state.server:
+				self.shared_state.server.shutdown()
 		
-		exit_timer = threading.Timer(5.0, delayed_exit)
-		exit_timer.daemon = True
-		exit_timer.start()
+		shutdown_timer = threading.Timer(5.0, delayed_shutdown)
+		shutdown_timer.daemon = True
+		shutdown_timer.start()
 
 	def handle(self):
 		"""Handle a request."""
@@ -801,12 +803,16 @@ def _print(*args, **kwargs):
 def main():
 	"""Starts the server."""
 	server = ThreadingTCPServer(('', LISTEN_PORT), Handler)
+	shared_state.server = server  # Store reference for shutdown
 	_print('[-] Now listening on port', LISTEN_PORT)
 	_print('[-] Date set to', DATE)
 	try:
 		server.serve_forever()
 	except KeyboardInterrupt: # Ctrl+C to stop
 		pass
+	finally:
+		_print('[-] Server stopped')
+		server.server_close()
 
 if __name__ == '__main__':
 	main()
