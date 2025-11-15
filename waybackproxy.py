@@ -106,6 +106,12 @@ class SharedState:
 		except:
 			self.whitelist = []
 
+		# Dormancy detection state.
+		self.dormancy_enabled = False
+		self.dormancy_timer = None
+		self.dormancy_lock = threading.Lock()
+		self.dormancy_first_request = True
+
 shared_state = SharedState()
 
 class Handler(socketserver.BaseRequestHandler):
@@ -117,6 +123,38 @@ class Handler(socketserver.BaseRequestHandler):
 
 		# Store a local pointer to SharedState.
 		self.shared_state = shared_state
+
+	def on_dormancy_timeout(self):
+		"""Called when the dormancy timer expires (page load finished)."""
+		_print('[dormancy timeout - page load finished]')
+		
+		# Disable dormancy to prevent duplicate notifications.
+		with self.shared_state.dormancy_lock:
+			self.shared_state.dormancy_enabled = False
+			self.shared_state.dormancy_timer = None
+		
+		# Send notification to localhost:8080/load_finish
+		try:
+			_print('[sending notification to localhost:8080/load_finish]')
+			self.shared_state.http.request('GET', 'http://localhost:8080/load_finish', timeout=5, retries=0)
+			_print('[notification sent successfully]')
+		except Exception as e:
+			_print('[!] Failed to send notification to localhost:8080/load_finish:', e)
+			_print('[!] Terminating proxy')
+			# Terminate the proxy
+			import os
+			os._exit(1)
+		
+		# Schedule proxy termination after 5 seconds
+		_print('[proxy will terminate in 5 seconds]')
+		def delayed_exit():
+			_print('[terminating proxy]')
+			import os
+			os._exit(0)
+		
+		exit_timer = threading.Timer(5.0, delayed_exit)
+		exit_timer.daemon = True
+		exit_timer.start()
 
 	def handle(self):
 		"""Handle a request."""
@@ -203,6 +241,20 @@ class Handler(socketserver.BaseRequestHandler):
 				pac += '''}\r\n'''
 				self.request.sendall(pac.encode('ascii', 'ignore'))
 				return
+			elif hostname == 'web.archive.org' and path == '/load_start':
+				# Enable dormancy detection.
+				_print('[dormancy enabled]')
+				with self.shared_state.dormancy_lock:
+					self.shared_state.dormancy_enabled = True
+					self.shared_state.dormancy_first_request = True
+					if self.shared_state.dormancy_timer:
+						self.shared_state.dormancy_timer.cancel()
+						self.shared_state.dormancy_timer = None
+				response  = http_version + ' 200 OK\r\n'
+				response += 'Content-Length: 0\r\n'
+				response += '\r\n'
+				self.request.sendall(response.encode('ascii', 'ignore'))
+				return
 			elif hostname in self.shared_state.whitelist:
 				_print('[>] [byp]', archived_url)
 			elif hostname == 'web.archive.org':
@@ -230,6 +282,23 @@ class Handler(socketserver.BaseRequestHandler):
 				_print('[>]', archived_url)
 
 				request_url = 'https://web.archive.org/web/{0}if_/{1}'.format(effective_date, archived_url)
+
+			# Handle dormancy detection for normal requests.
+			with self.shared_state.dormancy_lock:
+				if self.shared_state.dormancy_enabled:
+					if self.shared_state.dormancy_first_request:
+						# First normal request after enabling dormancy - start timer.
+						self.shared_state.dormancy_first_request = False
+						_print('[dormancy timer started]')
+					
+					# Cancel existing timer if any.
+					if self.shared_state.dormancy_timer:
+						self.shared_state.dormancy_timer.cancel()
+					
+					# Start new 10-second timer.
+					self.shared_state.dormancy_timer = threading.Timer(10.0, self.on_dormancy_timeout)
+					self.shared_state.dormancy_timer.daemon = True
+					self.shared_state.dormancy_timer.start()
 
 			# Check Wayback Machine Availability API where applicable, to avoid archived 404 pages and other site errors.
 			split = request_url.split('/')
