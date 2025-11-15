@@ -1,4 +1,5 @@
 import json
+import os
 
 # Listen port for the HTTP proxy.
 global LISTEN_PORT
@@ -40,7 +41,11 @@ global SILENT
 # Enables the settings page on http://web.archive.org if set to True.
 global SETTINGS_PAGE
 
-with open('config.json', 'r', encoding='utf8', errors='ignore') as f:
+# Get the directory where this config_handler.py file is located
+_config_dir = os.path.dirname(os.path.abspath(__file__))
+_config_path = os.path.join(_config_dir, 'config.json')
+
+with open(_config_path, 'r', encoding='utf8', errors='ignore') as f:
 	data = json.loads(f.read())
 	LISTEN_PORT = data['LISTEN_PORT']
 	DATE = data['DATE']

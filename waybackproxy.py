@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
-import base64, collections, datetime, json, re, socket, socketserver, string, sys, threading, time, traceback, urllib.parse
+import base64, collections, datetime, json, os, re, socket, socketserver, string, sys, threading, time, traceback, urllib.parse
 try:
 	import urllib3
 except ImportError:
 	print('WaybackProxy now requires urllib3 to be installed. Follow setup step 3 on the readme to fix this.')
 	sys.exit(1)
 from config_handler import *
+
+# Get the directory where waybackproxy.py is located for resolving relative paths
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 class ThreadingTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
 	"""TCPServer with ThreadingMixIn added."""
@@ -101,7 +104,8 @@ class SharedState:
 
 		# Read domain whitelist file.
 		try:
-			with open('whitelist.txt', 'r') as f:
+			whitelist_path = os.path.join(_SCRIPT_DIR, 'whitelist.txt')
+			with open(whitelist_path, 'r') as f:
 				self.whitelist = f.read().splitlines()
 		except:
 			self.whitelist = []
@@ -666,7 +670,8 @@ class Handler(socketserver.BaseRequestHandler):
 
 		# Read error page file.
 		try:
-			with open('error.html', 'r', encoding='utf8', errors='ignore') as f:
+			error_html_path = os.path.join(_SCRIPT_DIR, 'error.html')
+			with open(error_html_path, 'r', encoding='utf8', errors='ignore') as f:
 				error_page = f.read()
 		except:
 			# Just send the code and reason as a backup.
