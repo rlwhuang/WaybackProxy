@@ -111,7 +111,7 @@ class SharedState:
 			self.whitelist = []
 
 		# Dormancy detection state.
-		self.dormancy_enabled = False
+		self.dormancy_enabled = True  # Start enabled from the beginning
 		self.dormancy_timer = None
 		self.dormancy_lock = threading.Lock()
 		self.dormancy_first_request = True
@@ -141,7 +141,7 @@ class Handler(socketserver.BaseRequestHandler):
 		# Send notification to localhost:8080/load_finish
 		try:
 			_print('[sending notification to localhost:8080/load_finish]')
-			self.shared_state.http.request('GET', 'http://localhost:8080/load_finish', timeout=5, retries=0)
+			self.shared_state.http.request('GET', 'http://localhost:8080/load_finish', timeout=5, retries=2)
 			_print('[notification sent successfully]')
 		except Exception as e:
 			_print('[!] Failed to send notification to localhost:8080/load_finish:', e)
@@ -151,14 +151,14 @@ class Handler(socketserver.BaseRequestHandler):
 				self.shared_state.server.shutdown()
 			return
 		
-		# Schedule proxy shutdown after 5 seconds
-		_print('[proxy will shut down in 5 seconds]')
+		# Schedule proxy shutdown after 1 second
+		_print('[proxy will shut down in 1 second]')
 		def delayed_shutdown():
 			_print('[shutting down proxy]')
 			if self.shared_state.server:
 				self.shared_state.server.shutdown()
 		
-		shutdown_timer = threading.Timer(5.0, delayed_shutdown)
+		shutdown_timer = threading.Timer(1.0, delayed_shutdown)
 		shutdown_timer.daemon = True
 		shutdown_timer.start()
 
@@ -247,20 +247,6 @@ class Handler(socketserver.BaseRequestHandler):
 				pac += '''}\r\n'''
 				self.request.sendall(pac.encode('ascii', 'ignore'))
 				return
-			elif hostname == 'web.archive.org' and path == '/load_start':
-				# Enable dormancy detection.
-				_print('[dormancy enabled]')
-				with self.shared_state.dormancy_lock:
-					self.shared_state.dormancy_enabled = True
-					self.shared_state.dormancy_first_request = True
-					if self.shared_state.dormancy_timer:
-						self.shared_state.dormancy_timer.cancel()
-						self.shared_state.dormancy_timer = None
-				response  = http_version + ' 200 OK\r\n'
-				response += 'Content-Length: 0\r\n'
-				response += '\r\n'
-				self.request.sendall(response.encode('ascii', 'ignore'))
-				return
 			elif hostname in self.shared_state.whitelist:
 				_print('[>] [byp]', archived_url)
 			elif hostname == 'web.archive.org':
@@ -301,8 +287,8 @@ class Handler(socketserver.BaseRequestHandler):
 					if self.shared_state.dormancy_timer:
 						self.shared_state.dormancy_timer.cancel()
 					
-					# Start new 10-second timer.
-					self.shared_state.dormancy_timer = threading.Timer(10.0, self.on_dormancy_timeout)
+					# Start new 5-second timer.
+					self.shared_state.dormancy_timer = threading.Timer(4.0, self.on_dormancy_timeout)
 					self.shared_state.dormancy_timer.daemon = True
 					self.shared_state.dormancy_timer.start()
 
@@ -818,6 +804,7 @@ def main():
 	shared_state.server = server  # Store reference for shutdown
 	_print('[-] Now listening on port', LISTEN_PORT)
 	_print('[-] Date set to', DATE)
+	_print('[-] Dormancy detection enabled')
 	try:
 		server.serve_forever()
 	except KeyboardInterrupt: # Ctrl+C to stop
