@@ -12,6 +12,7 @@ _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 class ThreadingTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
 	"""TCPServer with ThreadingMixIn added."""
+	allow_reuse_address = True  # Allow immediate port reuse
 	pass
 
 # http://code.activestate.com/recipes/580644-lru-dictionary/
