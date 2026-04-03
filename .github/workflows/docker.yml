@@ -1,9 +1,9 @@
 on:
   push:
     paths:
-      - *.py
-      - *.txt
-      - *.html
+      - "*.py"
+      - "*.txt"
+      - "*.html"
       - startup.sh
       - Dockerfile
 
