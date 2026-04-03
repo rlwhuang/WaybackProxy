@@ -24,7 +24,6 @@ ARG SETTINGS_PAGE=true
 
 EXPOSE ${LISTEN_PORT}
 
-RUN pip install -r /app/requirements.txt
+RUN pip install -r /app/requirements.txt --root-user-action=ignore
 
 CMD [ "sh" , "/app/startup.sh" ]
-#CMD [ "python" , "/app/waybackproxy.py" ]

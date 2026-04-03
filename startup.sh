@@ -35,4 +35,4 @@ fi
 echo "[-] Using this config.json file:"
 cat /app/config.json
 echo "\n[-] Starting proxy server"
-python /app/waybackproxy.py
+exec python /app/waybackproxy.py
