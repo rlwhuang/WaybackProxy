@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import base64, collections, datetime, json, re, socket, socketserver, string, sys, threading, time, traceback, urllib.parse
+import base64, collections, datetime, fnmatch, json, re, socket, socketserver, string, sys, threading, time, traceback, urllib.parse
 try:
 	import urllib3
 except ImportError:
@@ -106,6 +106,11 @@ class SharedState:
 		except:
 			self.whitelist = []
 
+		# Add whitelist entries for base domains on wildcard matches.
+		for i in range(len(self.whitelist)):
+			if self.whitelist[i][:2] == '*.':
+				self.whitelist.append(self.whitelist[i][2:])
+
 shared_state = SharedState()
 
 class Handler(socketserver.BaseRequestHandler):
@@ -203,7 +208,7 @@ class Handler(socketserver.BaseRequestHandler):
 				pac += '''}\r\n'''
 				self.request.sendall(pac.encode('ascii', 'ignore'))
 				return
-			elif hostname in self.shared_state.whitelist:
+			elif any(fnmatch.fnmatch(hostname, entry) for entry in self.shared_state.whitelist):
 				_print('[>] [byp]', archived_url)
 			elif hostname == 'web.archive.org':
 				if path[:5] != '/web/':
