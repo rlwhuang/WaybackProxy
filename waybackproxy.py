@@ -379,7 +379,7 @@ class Handler(socketserver.BaseRequestHandler):
 				return self.send_redirect_page(http_version, archived_url, 301)
 
 			# Check if the date is within tolerance.
-			if DATE_TOLERANCE != None:
+			if DATE_TOLERANCE:
 				match = re.search('''(?://web\\.archive\\.org|^)/web/([0-9]+)''', conn.geturl() or '')
 				if match:
 					requested_date = match.group(1)
@@ -658,15 +658,18 @@ class Handler(socketserver.BaseRequestHandler):
 		if query != '': # handle any parameters that may have been sent
 			parsed = urllib.parse.parse_qs(query)
 
-			if 'date' in parsed and 'dateTolerance' in parsed:
+			if 'date' in parsed:
 				if DATE != parsed['date'][0]:
 					DATE = parsed['date'][0]
 					self.shared_state.date_cache.clear()
 					self.shared_state.availability_cache.clear()
-				if DATE_TOLERANCE != parsed['dateTolerance'][0]:
-					DATE_TOLERANCE = parsed['dateTolerance'][0]
+				try:
+					DATE_TOLERANCE = int(parsed['dateTolerance'][0])
+				except:
+					DATE_TOLERANCE = None
 				GEOCITIES_FIX = 'gcFix' in parsed
 				QUICK_IMAGES = 'quickImages' in parsed
+				WAYBACK_API = 'waybackApi' in parsed
 				CONTENT_TYPE_ENCODING = 'ctEncoding' in parsed
 
 		# send the page and stop
@@ -677,14 +680,18 @@ class Handler(socketserver.BaseRequestHandler):
 		settingspage += '<p>Date to get pages from: <input type="text" name="date" size="8" value="'
 		settingspage += str(DATE)
 		settingspage += '"><p>Date tolerance: <input type="text" name="dateTolerance" size="8" value="'
-		settingspage += str(DATE_TOLERANCE)
-		settingspage += '"> days<br><input type="checkbox" name="gcFix"'
+		if DATE_TOLERANCE:
+			settingspage += str(DATE_TOLERANCE)
+		settingspage += '" placeholder="Off"> days<br><input type="checkbox" name="gcFix"'
 		if GEOCITIES_FIX:
 			settingspage += ' checked'
 		settingspage += '> Geocities Fix<br><input type="checkbox" name="quickImages"'
 		if QUICK_IMAGES:
 			settingspage += ' checked'
-		settingspage += '> Quick images<br><input type="checkbox" name="ctEncoding"'
+		settingspage += '> Quick images<br><input type="checkbox" name="waybackApi"'
+		if QUICK_IMAGES:
+			settingspage += ' checked'
+		settingspage += '> Use Wayback API<br><input type="checkbox" name="ctEncoding"'
 		if CONTENT_TYPE_ENCODING:
 			settingspage += ' checked'
 		settingspage += '> Encoding in Content-Type</p><p><input type="submit" value="Save"></p></form></body></html>'
