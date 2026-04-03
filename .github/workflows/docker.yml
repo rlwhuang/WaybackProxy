@@ -6,6 +6,7 @@ on:
       - "*.html"
       - startup.sh
       - Dockerfile
+      - .github/workflows/docker.yml
 
 jobs:
   docker:
