@@ -77,6 +77,7 @@ docker run -d -e DATE=20011025 -p 8888:8888 waybackproxy
   * Strange 404 errors caused by bad server responses or incorrect URL capitalization at archival time;
   * Infinite redirect loops;
   * Server errors when it's having a bad day.
+* The Wayback Machine has a firewall which blocks IPs for a handful of seconds (with `Connection refused` errors) if too many connections are made. WaybackProxy limits the number of connections it makes, but running multiple instances or using fast modern browsers may trigger the firewall.
 * WaybackProxy will work around some redirection scripts (example: `http://example.com/redirect?to=http://...`) which are not archived by the Wayback Machine, but the destination URLs are sometimes not archived either.
 * WaybackProxy is not a generic proxy. The POST and CONNECT methods are not implemented.
 * Transparent proxying mode requires HTTP/1.1 and therefore cannot be used with some really old (pre-1996) browsers. Use standard mode with such browsers.
