@@ -143,21 +143,22 @@ class Handler(socketserver.BaseRequestHandler):
 		pac_host = '" + location.host + ":' + str(LISTEN_PORT) # may not actually work
 		effective_date = DATE
 		auth = None
-		while line.strip() != '':
-			line = f.readline()
-			ll = line.lower()
-			if ll[:6] == 'host: ':
-				pac_host = request_host = line[6:].rstrip()
-				if ':' not in pac_host: # explicitly specify port if running on port 80
-					pac_host += ':80'
-			elif ll[:21] == 'x-waybackproxy-date: ':
-				# API for a personal project of mine
-				effective_date = line[21:].rstrip()
-			elif ll[:21] == 'authorization: basic ':
-				# asset date code passed as username:password
-				auth = base64.b64decode(ll[21:])
-			if ll[:12] != 'connection: ': # prevent keepalive in passthrough
-				passthrough.append(line)
+		if http_version:
+			while line.strip() != '':
+				line = f.readline()
+				ll = line.lower()
+				if ll[:6] == 'host: ':
+					pac_host = request_host = line[6:].rstrip()
+					if ':' not in pac_host: # explicitly specify port if running on port 80
+						pac_host += ':80'
+				elif ll[:21] == 'x-waybackproxy-date: ':
+					# API for a personal project of mine
+					effective_date = line[21:].rstrip()
+				elif ll[:21] == 'authorization: basic ':
+					# asset date code passed as username:password
+					auth = base64.b64decode(ll[21:])
+				if ll[:12] != 'connection: ': # prevent keepalive in passthrough
+					passthrough.append(line)
 
 		# Parse the URL.
 		pac_file_paths = ('/proxy.pac', '/wpad.dat', '/wpad.da')
@@ -233,9 +234,11 @@ class Handler(socketserver.BaseRequestHandler):
 				return self.send_error_page(http_version, 501, 'Not Implemented', extra=http_method)
 			elif path in pac_file_paths:
 				# PAC file to bypass QUICK_IMAGES requests if WAYBACK_API is not enabled.
-				pac  = http_version + ''' 200 OK\r\n'''
-				pac += '''Content-Type: application/x-ns-proxy-autoconfig\r\n'''
-				pac += '''\r\n'''
+				pac = ''
+				if http_version:
+					pac += http_version + ''' 200 OK\r\n'''
+					pac += '''Content-Type: application/x-ns-proxy-autoconfig\r\n'''
+					pac += '''\r\n'''
 				pac += '''function FindProxyForURL(url, host)\r\n'''
 				pac += '''{\r\n'''
 				if not WAYBACK_API:
@@ -583,6 +586,10 @@ class Handler(socketserver.BaseRequestHandler):
 	def send_response_headers(self, conn, http_version, content_type, request_url, content_length=False):
 		"""Generate and send the response headers."""
 
+		# Not applicable for HTTP/0.9.
+		if not http_version:
+			return
+
 		# Pass the HTTP version, and error code if there is one.
 		response = '{0} {1} {2}'.format(http_version, conn.status, conn.reason.replace('\n', ' '))
 
@@ -604,7 +611,7 @@ class Handler(socketserver.BaseRequestHandler):
 			elif content_length and header.lower() == 'content-length':
 				response += '\r\n' + header + ': ' + conn.headers[header]
 
-		# Finish and send the request.
+		# Finish and send the headers.
 		response += '\r\n\r\n'
 		self.request.sendall(response.encode('utf8', 'ignore'))
 
@@ -643,13 +650,15 @@ class Handler(socketserver.BaseRequestHandler):
 		error_page_len = len(error_page)
 
 		# Send formatted error page and stop.
-		self.request.sendall(
-			'{http_version} {code} {reason}\r\n'
-			'Content-Type: text/html\r\n'
-			'Content-Length: {error_page_len}\r\n'
-			'\r\n'
-			.format(**locals()).encode('utf8', 'ignore') + error_page
-		)
+		if http_version:
+			error_page = (
+				'{http_version} {code} {reason}\r\n'
+				'Content-Type: text/html\r\n'
+				'Content-Length: {error_page_len}\r\n'
+				'\r\n'
+				.format(**locals()).encode('utf8', 'ignore') + error_page
+			)
+		self.request.sendall(error_page)
 		self.request.close()
 
 	def send_redirect_page(self, http_version, target, code=302):
@@ -661,14 +670,16 @@ class Handler(socketserver.BaseRequestHandler):
 		redirect_page_len = len(redirect_page)
 
 		# Send redirect page and stop.
-		self.request.sendall(
-			'{http_version} {code} Found\r\n'
-			'Location: {target}\r\n'
-			'Content-Type: text/html\r\n'
-			'Content-Length: {redirect_page_len}\r\n'
-			'\r\n'
-			.format(**locals()).encode('utf8', 'ignore') + redirect_page
-		)
+		if http_version:
+			redirect_page = (
+				'{http_version} {code} Found\r\n'
+				'Location: {target}\r\n'
+				'Content-Type: text/html\r\n'
+				'Content-Length: {redirect_page_len}\r\n'
+				'\r\n'
+				.format(**locals()).encode('utf8', 'ignore') + redirect_page
+			)
+		self.request.sendall(redirect_page)
 		self.request.close()
 
 	def guess_and_send_redirect(self, http_version, guess_url):
