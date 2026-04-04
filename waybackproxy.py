@@ -236,18 +236,18 @@ class Handler(socketserver.BaseRequestHandler):
 				# PAC file to bypass QUICK_IMAGES requests if WAYBACK_API is not enabled.
 				pac = ''
 				if http_version:
-					pac += http_version + ''' 200 OK\r\n'''
-					pac += '''Content-Type: application/x-ns-proxy-autoconfig\r\n'''
-					pac += '''\r\n'''
-				pac += '''function FindProxyForURL(url, host)\r\n'''
-				pac += '''{\r\n'''
+					pac += (
+						http_version + ' 200 OK\r\n'
+						'Content-Type: application/x-ns-proxy-autoconfig\r\n'
+						'\r\n'
+					)
+				pac += 'function FindProxyForURL(url, host) {\r\n'
 				if not WAYBACK_API:
-					pac += '''	if (shExpMatch(url, "http://web.archive.org/web/*") && !shExpMatch(url, "http://web.archive.org/web/??????????????if_/*"))\r\n'''
-					pac += '''	{\r\n'''
-					pac += '''		return "DIRECT";\r\n'''
-					pac += '''	}\r\n'''
-				pac += '''	return "PROXY ''' + pac_host + '''";\r\n'''
-				pac += '''}\r\n'''
+					pac += '	if (shExpMatch(url, "http://web.archive.org/web/*") && !shExpMatch(url, "http://web.archive.org/web/??????????????if_/*")) return "DIRECT";\r\n'
+				pac += (
+					'	return "PROXY '+ pac_host + '";\r\n'
+					'}\r\n'
+				)
 				self.request.sendall(pac.encode('ascii', 'ignore'))
 				return self.request.close()
 			elif hostname == 'web.archive.org':
@@ -665,7 +665,15 @@ class Handler(socketserver.BaseRequestHandler):
 		"""Generate a redirect page."""
 
 		# Make redirect page.
-		redirect_page = '<html><head><title>Redirect</title><meta http-equiv="refresh" content="0;url=${target}"></head><body><p>If you are not redirected, <a href="${target}">click here</a>.</p></body></html>'
+		target_html = target
+		for c in '<>"\';':
+			target_html = target_html.replace(c, '%{0:02X}'.format(ord(c)))
+		target_js = target_html.replace('\\', '\\\\')
+		redirect_page = (
+			'<html><head><title>Redirect</title><meta http-equiv="refresh" content="0;url=${target_html}"><script language="javascript"><!--\n'
+			'document.location.href = "${target_js}";\n'
+			'--></script></head><body><p>If you are not redirected, <a href="${target}">click here</a>.</p></body></html>'
+		)
 		redirect_page = string.Template(redirect_page).substitute(**locals()).encode('utf8', 'ignore')
 		redirect_page_len = len(redirect_page)
 
