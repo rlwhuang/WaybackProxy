@@ -130,13 +130,13 @@ class Handler(socketserver.BaseRequestHandler):
 		f = self.request.makefile()
 
 		# read request line
-		reqline = line = f.readline()
+		line = f.readline()
+		passthrough = [line, 'Connection: close']
 		split = line.rstrip().split(' ')
-		http_version = len(split) > 2 and split[2].upper() or 'HTTP/0.9'
-
-		if len(split) < 2 or split[0].upper() != 'GET':
-			# only GET is implemented
-			return self.send_error_page(http_version, 501, 'Not Implemented', extra=split[0])
+		if len(split) < 2:
+			return self.request.close() # invalid
+		http_method = split[0].upper()
+		http_version = split[2].upper() if len(split) > 2 else None
 
 		# read out the headers
 		request_host = None
@@ -156,6 +156,8 @@ class Handler(socketserver.BaseRequestHandler):
 			elif ll[:21] == 'authorization: basic ':
 				# asset date code passed as username:password
 				auth = base64.b64decode(ll[21:])
+			if ll[:12] != 'connection: ': # prevent keepalive in passthrough
+				passthrough.append(line)
 
 		# parse the URL
 		pac_file_paths = ('/proxy.pac', '/wpad.dat', '/wpad.da')
@@ -166,7 +168,7 @@ class Handler(socketserver.BaseRequestHandler):
 				return self.send_error_page(http_version, 400, 'Host header missing')
 			archived_url = 'http://' + request_host + split[1]
 		else:
-			# full URL => explicit proxy
+			# full URL => non-transparent proxy
 			archived_url = split[1]
 		request_url = archived_url
 		parsed = urllib.parse.urlparse(request_url)
@@ -179,8 +181,12 @@ class Handler(socketserver.BaseRequestHandler):
 			path == '/'
 
 		# get the hostname for later
-		host = parsed.netloc.split(':')
+		host = (archived_url if http_method == 'CONNECT' else parsed.netloc).split(':')
 		hostname = host[0]
+		try:
+			port = int(host[1])
+		except:
+			port = 80
 
 		# get cached date for redirects, if available
 		original_date = effective_date
@@ -192,7 +198,42 @@ class Handler(socketserver.BaseRequestHandler):
 
 		# Effectively handle the request.
 		try:
-			if path in pac_file_paths:
+			if any(fnmatch.fnmatch(hostname, entry) for entry in self.shared_state.whitelist):
+				_print('[>] [byp]', archived_url)
+
+				# Connect to destination.
+				conn = socket.create_connection((hostname, port))
+
+				if http_method == 'CONNECT':
+					# Send CONNECT response.
+					if http_version:
+						self.request.sendall((http_version + ' 200 Connection established\r\n\r\n').encode('ascii', 'ignore'))
+				else:
+					# Pass the request through.
+					conn.sendall(b''.join((line.rstrip('\r\n') + '\r\n').encode('utf8', 'ignore') for line in passthrough))
+
+				# Pass data through in both directions.
+				self.request.setblocking(False)
+				conn.setblocking(False)
+				while True:
+					for pair in ((self.request, conn), (conn, self.request)):
+						try:
+							data = pair[0].recv(4096)
+							assert data
+							pair[1].sendall(data)
+						except BlockingIOError:
+							pass
+						except:
+							# One side has disconnected => disconnect the other side and stop.
+							for sock in pair:
+								try:
+									sock.close()
+								except:
+									pass
+							return
+			elif http_method != 'GET': # only GET is implemented outside of bypass
+				return self.send_error_page(http_version, 501, 'Not Implemented', extra=http_method)
+			elif path in pac_file_paths:
 				# PAC file to bypass QUICK_IMAGES requests if WAYBACK_API is not enabled.
 				pac  = http_version + ''' 200 OK\r\n'''
 				pac += '''Content-Type: application/x-ns-proxy-autoconfig\r\n'''
@@ -207,9 +248,7 @@ class Handler(socketserver.BaseRequestHandler):
 				pac += '''	return "PROXY ''' + pac_host + '''";\r\n'''
 				pac += '''}\r\n'''
 				self.request.sendall(pac.encode('ascii', 'ignore'))
-				return
-			elif any(fnmatch.fnmatch(hostname, entry) for entry in self.shared_state.whitelist):
-				_print('[>] [byp]', archived_url)
+				return self.request.close()
 			elif hostname == 'web.archive.org':
 				if path[:5] != '/web/':
 					# Launch settings if enabled.
