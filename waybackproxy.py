@@ -126,10 +126,10 @@ class Handler(socketserver.BaseRequestHandler):
 	def handle(self):
 		"""Handle a request."""
 
-		# readline is pretty convenient
+		# Create reader for the HTTP request.
 		f = self.request.makefile()
 
-		# read request line
+		# Read the request line.
 		line = f.readline()
 		passthrough = [line, 'Connection: close']
 		split = line.rstrip().split(' ')
@@ -138,7 +138,7 @@ class Handler(socketserver.BaseRequestHandler):
 		http_method = split[0].upper()
 		http_version = split[2].upper() if len(split) > 2 else None
 
-		# read out the headers
+		# Read the headers.
 		request_host = None
 		pac_host = '" + location.host + ":' + str(LISTEN_PORT) # may not actually work
 		effective_date = DATE
@@ -159,7 +159,7 @@ class Handler(socketserver.BaseRequestHandler):
 			if ll[:12] != 'connection: ': # prevent keepalive in passthrough
 				passthrough.append(line)
 
-		# parse the URL
+		# Parse the URL.
 		pac_file_paths = ('/proxy.pac', '/wpad.dat', '/wpad.da')
 		if split[1][0] == '/' and split[1] not in pac_file_paths:
 			# just a path (not corresponding to a PAC file) => transparent proxy
@@ -173,14 +173,12 @@ class Handler(socketserver.BaseRequestHandler):
 		request_url = archived_url
 		parsed = urllib.parse.urlparse(request_url)
 
-		# make a path
+		# Get the URL's path and hostname.
 		path = parsed.path
 		if parsed.query:
 			path += '?' + parsed.query
 		elif path == '':
-			path == '/'
-
-		# get the hostname for later
+			path = '/'
 		host = (archived_url if http_method == 'CONNECT' else parsed.netloc).split(':')
 		hostname = host[0]
 		try:
@@ -188,20 +186,20 @@ class Handler(socketserver.BaseRequestHandler):
 		except:
 			port = 80
 
-		# get cached date for redirects, if available
+		# Get cached date for redirects, if available.
 		original_date = effective_date
 		effective_date = self.shared_state.date_cache.get(str(effective_date) + '\x00' + str(archived_url), effective_date)
 
-		# get date from username:password, if available
+		# Get date from username:password, if available.
 		if auth:
 			effective_date = auth.replace(':', '')
 
-		# Effectively handle the request.
+		# Handle the request.
 		try:
 			if any(fnmatch.fnmatch(hostname, entry) for entry in self.shared_state.whitelist):
 				_print('[>] [byp]', archived_url)
 
-				# Connect to destination.
+				# Connect to the destination.
 				conn = socket.create_connection((hostname, port))
 
 				if http_method == 'CONNECT':
@@ -650,9 +648,8 @@ class Handler(socketserver.BaseRequestHandler):
 			'Content-Type: text/html\r\n'
 			'Content-Length: {error_page_len}\r\n'
 			'\r\n'
-			.format(**locals()).encode('utf8', 'ignore')
+			.format(**locals()).encode('utf8', 'ignore') + error_page
 		)
-		self.request.sendall(error_page)
 		self.request.close()
 
 	def send_redirect_page(self, http_version, target, code=302):
@@ -670,9 +667,8 @@ class Handler(socketserver.BaseRequestHandler):
 			'Content-Type: text/html\r\n'
 			'Content-Length: {redirect_page_len}\r\n'
 			'\r\n'
-			.format(**locals()).encode('utf8', 'ignore')
+			.format(**locals()).encode('utf8', 'ignore') + redirect_page
 		)
-		self.request.sendall(redirect_page)
 		self.request.close()
 
 	def guess_and_send_redirect(self, http_version, guess_url):
