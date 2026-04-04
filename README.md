@@ -30,16 +30,16 @@ When deploying via Docker, the config.json can be customized by specifying envir
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `HOST` | (blank) | Host address to bind to for the HTTP proxy (leave blank to bind on all interfaces) |
-| `LISTEN_PORT` | `8888` | Listen port for the HTTP proxy |
+| `HOST` | (blank) | Host address to bind to for the HTTP proxy (leave blank to bind on all interfaces). Only useful when running the container with `host` networking. |
+| `LISTEN_PORT` | `8888` | Listen port for the HTTP proxy. Only useful when running the container with `host` networking. |
 | `DATE` | `20011025` | Date to get pages from Wayback. YYYYMMDD, YYYYMM and YYYY formats are accepted, the more specific the better. |
 | `DATE_TOLERANCE` | `365` | Allow the client to load pages and assets up to X days after DATE. Set to `null` to disable this restriction. |
-| `GEOCITIES_FIX` | `true` | Send Geocities requests to oocities.org if set to True. |
+| `GEOCITIES_FIX` | `true` | Send Geocities requests to oocities.org if set to `true`. |
 | `QUICK_IMAGES` | `true` | Use the original Wayback Machine URL as a shortcut when loading images. The browser must have an Internet connection that can reach the Wayback Machine for this to work. |
 | `WAYBACK_API` | `true` | Use the Wayback Machine Availability API to find the closest available snapshot to the desired date, instead of directly requesting that date. |
-| `CONTENT_TYPE_ENCODING` | `true` | Allow the Content-Type header to contain an encoding |
-| `SILENT` | `true` | Disables logging to STDOUT if set to `true` |
-| `SETTINGS_PAGE` | `true` | Enables the settings page on http://web.archive.org if set to `true` |
+| `CONTENT_TYPE_ENCODING` | `true` | Allow the Content-Type header to contain an encoding. |
+| `SILENT` | `true` | Disables logging to STDOUT if set to `true`. |
+| `SETTINGS_PAGE` | `true` | Enables the settings page on http://web.archive.org if set to `true`. |
 
 ### How to run in Docker
 
