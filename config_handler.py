@@ -1,7 +1,6 @@
 import json
 
-# Host address to bind to for the HTTP proxy (default of "" means "all
-# interfaces").
+# Host address to bind to for the HTTP proxy (leave blank to bind on all interfaces).
 global HOST
 
 # Listen port for the HTTP proxy.
