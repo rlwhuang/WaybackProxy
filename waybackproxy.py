@@ -356,10 +356,10 @@ class Handler(socketserver.BaseRequestHandler):
 					guessed_content_type = content_type
 				if 'javascript' in guessed_content_type:
 					match = re.match('''(https?://web\\.archive\\.org/web/[0-9]+)([^/]*)(.+)''', request_url)
-					if match and match.group(2) != 'im_':
+					if match and match.group(2) != 'id_':
 						self.drain_conn(conn)
 						conn.release_conn()
-						request_url = match.group(1) + 'im_' + match.group(3)
+						request_url = match.group(1) + 'id_' + match.group(3)
 						continue
 
 				# This request can proceed.
@@ -536,7 +536,7 @@ class Handler(socketserver.BaseRequestHandler):
 							return match.group(3) == b'https://' and b'http://' or match.group(3) # convert secure non-asset URLs to regular HTTP
 						asset_type = match.group(2)
 						if asset_type == b'js_': # cut down on the JavaScript detector's second request
-							asset_type = b'im_'
+							asset_type = b'id_'
 						if QUICK_IMAGES == 2:
 							return b'http://' + match.group(1) + b':' + asset_type + b'@'
 						else:
