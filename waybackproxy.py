@@ -672,7 +672,7 @@ class Handler(socketserver.BaseRequestHandler):
 		redirect_page = (
 			'<html><head><title>Redirect</title><meta http-equiv="refresh" content="0;url=${target_html}"><script language="javascript"><!--\n'
 			'document.location.href = "${target_js}";\n'
-			'--></script></head><body><p>If you are not redirected, <a href="${target}">click here</a>.</p></body></html>'
+			'--></script></head><body><p>If you are not redirected, <a href="${target_html}">click here</a>.</p></body></html>'
 		)
 		redirect_page = string.Template(redirect_page).substitute(**locals()).encode('utf8', 'ignore')
 		redirect_page_len = len(redirect_page)
