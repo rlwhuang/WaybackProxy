@@ -9,7 +9,7 @@ WaybackProxy is a retro-friendly HTTP proxy which retrieves pages from the [Inte
 Python 3.5 or newer is required.
 
 1. Edit `config.json` to your liking (make sure to set `QUICK_IMAGES` to `false` for non-Internet-connected systems)
-2. Optionally exclude domains from being proxied by adding them to `whitelist.txt`
+2. Optionally exclude domains and URLs from being proxied by adding them to `whitelist.txt` (without `http://`, wildcards supported)
 3. Install dependencies: `pip install --user -r requirements.txt`
 4. Start `waybackproxy.py`
 5. Set up your retro browser:

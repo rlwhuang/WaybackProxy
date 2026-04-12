@@ -106,10 +106,12 @@ class SharedState:
 		except:
 			self.whitelist = []
 
-		# Add whitelist entries for base domains on wildcard matches.
+		# Add whitelist entries for base domains and URLs on wildcard matches.
 		for i in range(len(self.whitelist)):
 			if self.whitelist[i][:2] == '*.':
 				self.whitelist.append(self.whitelist[i][2:])
+			if self.whitelist[i][-2:] == '/*':
+				self.whitelist.append(self.whitelist[i][:-2])
 
 shared_state = SharedState()
 
@@ -176,10 +178,10 @@ class Handler(socketserver.BaseRequestHandler):
 
 		# Get the URL's path and hostname.
 		path = parsed.path
+		if path == '':
+			path = '/'
 		if parsed.query:
 			path += '?' + parsed.query
-		elif path == '':
-			path = '/'
 		host = (archived_url if http_method == 'CONNECT' else parsed.netloc).split(':')
 		hostname = host[0]
 		try:
@@ -197,7 +199,7 @@ class Handler(socketserver.BaseRequestHandler):
 
 		# Handle the request.
 		try:
-			if any(fnmatch.fnmatch(hostname, entry) for entry in self.shared_state.whitelist):
+			if any((fnmatch.fnmatch(hostname, entry) or ('/' in entry and fnmatch.fnmatch(hostname + path, entry))) for entry in self.shared_state.whitelist):
 				_print('[>] [byp]', archived_url)
 
 				# Connect to the destination.
