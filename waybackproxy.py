@@ -364,6 +364,18 @@ class Handler(socketserver.BaseRequestHandler):
 						request_url = match.group(1) + 'id_' + match.group(3)
 						continue
 
+				# Wayback wraps Flash movies requested through the if_ interface in an
+				# HTML page that boots a Ruffle player, instead of serving the raw .swf.
+				# A native Flash plugin would get that text/html and fail to load, so
+				# re-request through the raw asset interface to get the actual movie.
+				elif 'text/html' in guessed_content_type and re.search('''\\.swf($|\\?)''', request_url, re.I):
+					match = re.match('''(https?://web\\.archive\\.org/web/[0-9]+)([^/]*)(.+)''', request_url)
+					if match and match.group(2) != 'id_':
+						self.drain_conn(conn)
+						conn.release_conn()
+						request_url = match.group(1) + 'id_' + match.group(3)
+						continue
+
 				# This request can proceed.
 				break
 		except urllib3.exceptions.MaxRetryError as e:
